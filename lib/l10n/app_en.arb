@@ -54,5 +54,12 @@
   "testSuccess": "Test success,you can save now",
   "connectFailed": "Storage connection failed",
   "selectRoot": "Select root path",
-  "currentPath": "Current path"
+  "currentPath": "Current path",
+  "baiduNetdisk": "Baidu Netdisk",
+  "baiduNetdiskLogin": "Baidu Netdisk Login",
+  "refreshingPleaseWait": "Comparing your local and cloud photos, if there are many photos, it may take some time. Please be patient......",
+  "setRemoteStroage": "Please set cloud storage first",
+  "needPermision": "Need permission to access photos",
+  "gotoSystemSetting": "You can go to system settings to change the permission",
+  "openSetting": "Open settings"
 }

@@ -5,6 +5,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'state_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:img_syncer/global.dart';
+import 'package:flutter/services.dart';
 
 class ChooseAlbumRoute extends StatefulWidget {
   const ChooseAlbumRoute({Key? key}) : super(key: key);
@@ -28,20 +29,36 @@ class ChooseAlbumRouteState extends State<ChooseAlbumRoute> {
   }
 
   Future<List<AssetPathEntity>> getAlbums() async {
-    await requestPermission();
+    final re = await requestPermission();
+    if (!re) return [];
     final List<AssetPathEntity> paths = await PhotoManager.getAssetPathList(
         type: RequestType.common, hasAll: true);
-    // ignore: deprecated_member_use
-    paths.sort((a, b) => b.assetCount.compareTo(a.assetCount));
+    // sort by asset count by assetCountAsync
+    // 使用Future.wait来获取所有异步值并保存到Map中
+    final Map<AssetPathEntity, int> assetCountMap = {};
+    await Future.wait(paths.map((path) async {
+      int assetCount = await path.assetCountAsync;
+      assetCountMap[path] = assetCount;
+    }));
+
+    // 使用sort方法对paths进行排序
+    paths.sort((a, b) {
+      int countA = assetCountMap[a] ?? 0;
+      int countB = assetCountMap[b] ?? 0;
+      return countB.compareTo(countA); // 从大到小排序
+    });
     return paths;
   }
 
-  Future<Uint8List> getFirstPhotoThumbnail(AssetPathEntity path) async {
+  Future<Uint8List?> getFirstPhotoThumbnail(AssetPathEntity path) async {
     final List<AssetEntity> entities =
         await path.getAssetListPaged(page: 0, size: 1);
-    final entity = entities[0];
-    final data = await entity.thumbnailData;
-    return data!;
+    if (entities.isNotEmpty) {
+      final entity = entities[0];
+      final data = await entity.thumbnailData;
+      return data!;
+    }
+    return null;
   }
 
   @override
@@ -52,14 +69,9 @@ class ChooseAlbumRouteState extends State<ChooseAlbumRoute> {
         FutureBuilder(
           future: getFirstPhotoThumbnail(path),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(
-                child: Text('No album found'),
-              );
-            }
             return AlbumCard(
               path: path,
-              thumbnail: snapshot.data as Uint8List,
+              thumbnail: snapshot.data,
             );
           },
         ),
@@ -71,7 +83,7 @@ class ChooseAlbumRouteState extends State<ChooseAlbumRoute> {
           backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
           iconTheme: Theme.of(context).iconTheme,
           elevation: 0,
-          title: Text(i18n.chooseAlbum,
+          title: Text(l10n.chooseAlbum,
               style: Theme.of(context).textTheme.titleLarge),
         ),
         body: CustomScrollView(
@@ -94,7 +106,7 @@ class ChooseAlbumRouteState extends State<ChooseAlbumRoute> {
 
 class AlbumCard extends StatelessWidget {
   final AssetPathEntity path;
-  final Uint8List thumbnail;
+  final Uint8List? thumbnail;
   const AlbumCard({
     Key? key,
     required this.path,
@@ -122,7 +134,9 @@ class AlbumCard extends StatelessWidget {
               SizedBox(
                   width: constraints.maxWidth,
                   height: constraints.maxHeight - 80,
-                  child: Image.memory(thumbnail, fit: BoxFit.cover)),
+                  child: thumbnail != null
+                      ? Image.memory(thumbnail!, fit: BoxFit.cover)
+                      : Image.asset("assets/images/gray.jpg")),
               Container(
                   alignment: Alignment.centerLeft,
                   height: 40,
@@ -153,7 +167,7 @@ class AlbumCard extends StatelessWidget {
                           future: path.assetCountAsync,
                           builder: (context, snapshot) => Text(
                               snapshot.hasData
-                                  ? "${snapshot.data} ${i18n.pics}"
+                                  ? "${snapshot.data} ${l10n.pics}"
                                   : 'unknown count pics',
                               style: Theme.of(context).textTheme.bodySmall),
                         ),
@@ -161,7 +175,7 @@ class AlbumCard extends StatelessWidget {
                     ),
                     Container(
                       alignment: Alignment.centerRight,
-                      width: 100,
+                      width: 120,
                       padding: const EdgeInsets.fromLTRB(5, 5, 5, 5),
                       child: FilledButton(
                         style: Theme.of(context).textButtonTheme.style,
@@ -172,7 +186,7 @@ class AlbumCard extends StatelessWidget {
                           });
                           Navigator.pop(context);
                         },
-                        child: Text(i18n.choose),
+                        child: Text(l10n.choose),
                       ),
                     ),
                   ],

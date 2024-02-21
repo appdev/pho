@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import 'package:exif/exif.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
+import 'dart:io';
 
 class Asset extends ImageProvider<Asset> {
   bool hasLocal = false;
@@ -33,8 +34,12 @@ class Asset extends ImageProvider<Asset> {
   String? fNumber;
   String? focalLength;
 
+  File? localFile;
+  String? localTitle;
+
   Asset({this.local, this.remote}) {
     if (local != null) {
+      // getLocalFile();
       hasLocal = true;
     }
     if (remote != null) {
@@ -46,8 +51,32 @@ class Asset extends ImageProvider<Asset> {
     return hasLocal;
   }
 
+  bool hasGotTitle() {
+    return localTitle != null;
+  }
+
+  Future<File?> getLocalFile() async {
+    if (localFile != null) {
+      return localFile;
+    }
+    if (hasLocal) {
+      localFile = await local!.originFile;
+      localTitle = await local!.titleAsync;
+    }
+    return localFile;
+  }
+
   String? name() {
     if (hasLocal) {
+      if (localTitle != null && localTitle != "") {
+        return localTitle;
+      }
+      if (local!.title != null && local!.title != "") {
+        return local!.title;
+      }
+      if (localFile != null) {
+        return basename(localFile!.path);
+      }
       return local!.title;
     }
     if (hasRemote) {
@@ -154,11 +183,19 @@ class Asset extends ImageProvider<Asset> {
     return false;
   }
 
+  bool loadThumbnailFinished() {
+    return _thumbnailData != null;
+  }
+
   ImageProvider thumbnailProvider() {
-    if (_thumbnailData != null && _thumbnailData!.isNotEmpty) {
-      return MemoryImage(_thumbnailData!);
+    try {
+      if (_thumbnailData != null && _thumbnailData!.isNotEmpty) {
+        return MemoryImage(_thumbnailData!);
+      }
+    } catch (e) {
+      print(e);
     }
-    return Image.asset("assets/images/broken.png").image;
+    return Image.asset("assets/images/gray.jpg").image;
   }
 
   Future<Uint8List> thumbnailDataAsync() async {
@@ -172,13 +209,13 @@ class Asset extends ImageProvider<Asset> {
     Uint8List? data;
     if (hasLocal) {
       data = await local!
-          .thumbnailDataWithSize(const ThumbnailSize.square(400), quality: 100);
+          .thumbnailDataWithSize(const ThumbnailSize.square(200), quality: 80);
     }
     if (hasRemote) {
       data = await remote!.thumbnail();
     }
-    if (data == null || data.isEmpty) {
-      final brokenData = await rootBundle.load("assets/images/broken.png");
+    if (data == null || data.isEmpty || !await isValidImage(data)) {
+      final brokenData = await rootBundle.load("assets/images/gray.jpg");
       _thumbnailDataCompleter!.complete(brokenData.buffer.asUint8List());
       return brokenData.buffer.asUint8List();
     } else {
@@ -229,6 +266,9 @@ class Asset extends ImageProvider<Asset> {
 
   String path() {
     if (hasLocal) {
+      if (localFile != null) {
+        return localFile!.path;
+      }
       if (local!.relativePath == null) {
         return "unknown";
       }
@@ -245,9 +285,7 @@ class Asset extends ImageProvider<Asset> {
       await PhotoManager.editor.deleteWithIds([local!.id]);
     }
     if (hasRemote) {
-      final rsp = await remote!.cli.delete(DeleteRequest(
-        paths: [remote!.path],
-      ));
+      final rsp = await remote!.cli.delete(DeleteRequest());
       if (!rsp.success) {
         throw Exception("delete failed: ${rsp.message}");
       }
@@ -286,6 +324,7 @@ class Asset extends ImageProvider<Asset> {
         }
         _isSizeInfoReadedFinished = true;
       });
+      _isSizeInfoReadedFinished = true;
     }
     compute(readExifFromBytes, data).then((exifData) {
       if (exifData.isEmpty) {
@@ -362,6 +401,15 @@ class Asset extends ImageProvider<Asset> {
 
   @override
   ImageStreamCompleter loadBuffer(Asset key, DecoderBufferCallback decode) {
+    if (extension(path()) == ".gif") {
+      return MultiFrameImageStreamCompleter(
+        codec: _loadAsyncMultiFrame(key, decode),
+        scale: 1,
+        informationCollector: () sync* {
+          yield ErrorDescription('Image provider: ${describeIdentity(key)}');
+        },
+      );
+    }
     return OneFrameImageStreamCompleter(_loadAsync(key, decode));
   }
 
@@ -370,11 +418,66 @@ class Asset extends ImageProvider<Asset> {
     if (data.isEmpty) {
       data = await thumbnailDataAsync();
     }
-    final ui.Codec codec = await ui.instantiateImageCodec(data);
-    final ui.FrameInfo fi = await codec.getNextFrame();
-    return ImageInfo(image: fi.image);
+    try {
+      final ui.Codec codec = await ui.instantiateImageCodec(data);
+      final ui.FrameInfo fi = await codec.getNextFrame();
+      return ImageInfo(image: fi.image);
+    } catch (e) {
+      print(e);
+    }
+    return await loadImage("assets/images/gray.jpg");
+  }
+
+  Future<ui.Codec> _loadAsyncMultiFrame(
+      Asset key, DecoderBufferCallback decode) async {
+    Uint8List data = await imageDataAsync();
+    if (data.isEmpty) {
+      data = await thumbnailDataAsync();
+    }
+    try {
+      final ui.Codec codec = await ui.instantiateImageCodec(data);
+      return codec;
+    } catch (e) {
+      print(e);
+    }
+    // If the data is invalid, you might want to load a fallback image.
+    // For this, you'll need to load the bytes for the fallback image and instantiate the codec for that.
+    // However, be careful, as this is a potential infinite loop if the fallback image fails to load too.
+    data = await _loadFallbackImageData();
+    return ui.instantiateImageCodec(data);
+  }
+
+  Future<Uint8List> _loadFallbackImageData() async {
+    ByteData data = await rootBundle.load("assets/images/gray.jpg");
+    return data.buffer.asUint8List();
   }
 
   @override
   String toString() => 'Asset(local: $local, remote: $remote)';
+}
+
+Future<ImageInfo> loadImage(String path) async {
+  final Completer<ImageInfo> completer = Completer();
+  final ImageProvider provider = AssetImage(path);
+  final ImageStream stream = provider.resolve(ImageConfiguration.empty);
+  final listener = ImageStreamListener((ImageInfo info, bool _) {
+    if (!completer.isCompleted) {
+      completer.complete(info);
+    }
+  });
+
+  stream.addListener(listener);
+  completer.future.then((_) => stream.removeListener(listener));
+
+  return completer.future;
+}
+
+Future<bool> isValidImage(Uint8List imageData) async {
+  try {
+    final codec =
+        await PaintingBinding.instance.instantiateImageCodec(imageData);
+    return codec != null;
+  } catch (e) {
+    return false;
+  }
 }

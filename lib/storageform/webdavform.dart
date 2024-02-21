@@ -4,7 +4,6 @@ import 'package:img_syncer/proto/img_syncer.pbgrpc.dart';
 import 'package:img_syncer/state_model.dart';
 import 'package:img_syncer/storage/storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:img_syncer/global.dart';
 
 class WebDavForm extends StatefulWidget {
@@ -138,13 +137,13 @@ class WebDavFormState extends State<WebDavForm> {
         onPressed: () {
           testStorage().then((value) {
             if (testSuccess) {
-              SnackBarManager.showSnackBar(i18n.testSuccess);
+              SnackBarManager.showSnackBar(l10n.testSuccess);
             } else {
               showErrorDialog(errormsg!);
             }
           });
         },
-        child: Text(i18n.testStorage),
+        child: Text(l10n.testStorage),
       ),
     );
   }
@@ -173,7 +172,7 @@ class WebDavFormState extends State<WebDavForm> {
                 Navigator.pop(context);
               }
             : null,
-        child: Text(i18n.save),
+        child: Text(l10n.save),
       ),
     );
   }
@@ -195,9 +194,9 @@ class WebDavFormState extends State<WebDavForm> {
       ),
     ));
     children.add(
-        input('${i18n.username} (${i18n.optional})', usernameController, null));
+        input('${l10n.username} (${l10n.optional})', usernameController, null));
     children.add(
-        input('${i18n.password} (${i18n.optional})', passwordController, null));
+        input('${l10n.password} (${l10n.optional})', passwordController, null));
     children.add(Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
       child: TextFormField(
@@ -207,7 +206,7 @@ class WebDavFormState extends State<WebDavForm> {
         autovalidateMode: AutovalidateMode.onUserInteraction,
         decoration: InputDecoration(
           border: const OutlineInputBorder(),
-          labelText: i18n.rootPath,
+          labelText: l10n.rootPath,
           helperText: "eg: /path/photo",
           suffixIcon: IconButton(
             icon: const Icon(Icons.open_in_browser),
@@ -254,7 +253,7 @@ class WebDavFormState extends State<WebDavForm> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 30, 20, 10),
                   child: Text(
-                    i18n.selectRoot,
+                    l10n.selectRoot,
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                 ),
@@ -262,7 +261,7 @@ class WebDavFormState extends State<WebDavForm> {
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    "${i18n.currentPath}: $currentPath",
+                    "${l10n.currentPath}: $currentPath",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ),
@@ -327,7 +326,7 @@ class WebDavFormState extends State<WebDavForm> {
                       width: 120,
                       height: 55,
                       child: OutlinedButton(
-                        child: Text(i18n.cancel),
+                        child: Text(l10n.cancel),
                         onPressed: () {
                           Navigator.of(context).pop();
                         },
@@ -338,7 +337,7 @@ class WebDavFormState extends State<WebDavForm> {
                       width: 120,
                       height: 55,
                       child: FilledButton(
-                        child: Text(i18n.save),
+                        child: Text(l10n.save),
                         onPressed: () {
                           rootPathController!.text = currentPath;
                           Navigator.of(context).pop();
@@ -359,7 +358,7 @@ class WebDavFormState extends State<WebDavForm> {
     showDialog<String>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: Text(i18n.connectFailed),
+        title: Text(l10n.connectFailed),
         content: Text(msg),
         actions: <Widget>[
           TextButton(

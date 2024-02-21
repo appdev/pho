@@ -34,7 +34,8 @@ class _BackgroundSyncSettingRouteState
       _backgroundSyncInterval =
           Duration(minutes: prefs.getInt('backgroundSyncInterval') ?? 60);
     });
-    await requestPermission();
+    final re = await requestPermission();
+    if (!re) return;
     albums = await PhotoManager.getAssetPathList(type: RequestType.common);
     for (var path in albums) {
       if (path.name == 'Recent') {
@@ -53,13 +54,13 @@ class _BackgroundSyncSettingRouteState
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         iconTheme: Theme.of(context).iconTheme,
         elevation: 0,
-        title: Text(i18n.backgroundSync,
+        title: Text(l10n.backgroundSync,
             style: Theme.of(context).textTheme.titleLarge),
       ),
       body: ListView(
         children: [
           ListTile(
-            title: Text(i18n.enableBackgroundSync),
+            title: Text(l10n.enableBackgroundSync),
             trailing: Switch(
               value: _backgroundSyncEnabled,
               onChanged: (value) async {
@@ -73,7 +74,7 @@ class _BackgroundSyncSettingRouteState
             ),
           ),
           ListTile(
-            title: Text(i18n.syncOnlyOnWifi),
+            title: Text(l10n.syncOnlyOnWifi),
             trailing: Switch(
               value: _backgroundSyncWifiOnly,
               onChanged: (value) async {
@@ -87,7 +88,7 @@ class _BackgroundSyncSettingRouteState
             ),
           ),
           ListTile(
-            title: Text(i18n.syncInterval),
+            title: Text(l10n.syncInterval),
             trailing: DropdownButton<Duration>(
               value: _backgroundSyncInterval,
               items: [
@@ -96,36 +97,36 @@ class _BackgroundSyncSettingRouteState
                 //   child: Text('1 minute'),
                 // ),
                 DropdownMenuItem(
-                  value: Duration(minutes: 10),
-                  child: Text('10 ${i18n.minite}'),
+                  value: const Duration(minutes: 10),
+                  child: Text('10 ${l10n.minite}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(hours: 1),
-                  child: Text('1 ${i18n.hour}'),
+                  value: const Duration(hours: 1),
+                  child: Text('1 ${l10n.hour}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(hours: 3),
-                  child: Text('3 ${i18n.hour}'),
+                  value: const Duration(hours: 3),
+                  child: Text('3 ${l10n.hour}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(hours: 6),
-                  child: Text('6 ${i18n.hour}'),
+                  value: const Duration(hours: 6),
+                  child: Text('6 ${l10n.hour}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(hours: 12),
-                  child: Text('12 ${i18n.hour}'),
+                  value: const Duration(hours: 12),
+                  child: Text('12 ${l10n.hour}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(days: 1),
-                  child: Text('1 ${i18n.day}'),
+                  value: const Duration(days: 1),
+                  child: Text('1 ${l10n.day}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(days: 3),
-                  child: Text('3 ${i18n.day}'),
+                  value: const Duration(days: 3),
+                  child: Text('3 ${l10n.day}'),
                 ),
                 DropdownMenuItem(
-                  value: Duration(days: 7),
-                  child: Text('1 ${i18n.week}'),
+                  value: const Duration(days: 7),
+                  child: Text('1 ${l10n.week}'),
                 ),
               ],
               onChanged: (value) async {

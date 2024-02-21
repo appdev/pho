@@ -9,13 +9,22 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
+
+func (a *api) SetHttpPort(port int) {
+	a.httpPort = port
+}
 
 func (a *api) HttpHandler() http.Handler {
 	return http.HandlerFunc(a.httpHandler)
 }
 
 func (a *api) httpHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/baidu/callback" {
+		a.httpBaiduCallback(w, r)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		if strings.HasPrefix(r.URL.Path, "/thumbnail/") {
@@ -43,11 +52,17 @@ func (a *api) httpUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	date := r.Header.Get("Image-Date")
+	length := r.ContentLength
 	var err error
+	dateTime, err := time.Parse("2006:01:02 15:04:05", date)
+	if err != nil {
+		dateTime = time.Now()
+	}
+	name := strings.TrimPrefix(path, "/")
 	if isVideo(path) {
-		err = a.im.UploadVideo(r.Body, nil, path, date)
+		err = a.im.UploadVideo(r.Body, nil, length, 0, encodeName(dateTime, name), dateTime)
 	} else {
-		err = a.im.UploadImg(r.Body, nil, path, date)
+		err = a.im.UploadImg(r.Body, nil, length, 0, encodeName(dateTime, name), dateTime)
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -70,7 +85,12 @@ func (a *api) httpUploadThumbnail(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimPrefix(path, "/thumbnail/")
 	date := r.Header.Get("Image-Date")
-	err := a.im.UploadImg(nil, r.Body, name, date)
+	length := r.ContentLength
+	dateTime, err := time.Parse("2006:01:02 15:04:05", date)
+	if err != nil {
+		dateTime = time.Now()
+	}
+	err = a.im.UploadImg(nil, r.Body, 0, length, encodeName(dateTime, name), dateTime)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -176,4 +196,21 @@ func (a *api) httpDownloadThumbnail(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(err.Error()))
 		return
 	}
+}
+
+func encodeName(time time.Time, name string) string {
+	return fmt.Sprintf("%s_%s", time.Format("20060102030405"), name)
+}
+
+func decodeName(encoded string) (time.Time, string, error) {
+	if len(encoded) < 15 {
+		return time.Time{}, "", fmt.Errorf("invalid encoded name")
+	}
+	timeStr := encoded[:14]
+	name := encoded[15:]
+	t, err := time.Parse("20060102030405", timeStr)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return t, name, nil
 }

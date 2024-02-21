@@ -4,13 +4,9 @@ package img_syncer;
 option go_package = "github.com/fregie/img_syncer/proto";
 
 service ImgSyncer {
-  rpc Hello (HelloRequest) returns (HelloResponse) {}
-  rpc Upload (stream UploadRequest) returns (UploadResponse) {}
-  rpc Get (GetRequest) returns (stream GetResponse) {}
-  rpc GetThumbnail (GetThumbnailRequest) returns (stream GetThumbnailResponse) {}
   rpc ListByDate (ListByDateRequest) returns (ListByDateResponse) {}
   rpc Delete (DeleteRequest) returns (DeleteResponse) {}
-  rpc FilterNotUploaded (FilterNotUploadedRequest) returns (FilterNotUploadedResponse) {}
+  rpc FilterNotUploaded (stream FilterNotUploadedRequest) returns (stream FilterNotUploadedResponse) {}
   // SAMBA Drive
   rpc SetDriveSMB (SetDriveSMBRequest) returns (SetDriveSMBResponse) {}
   rpc ListDriveSMBShares (ListDriveSMBSharesRequest) returns (ListDriveSMBSharesResponse) {}
@@ -22,6 +18,8 @@ service ImgSyncer {
   // NFS Drive
   rpc SetDriveNFS (SetDriveNFSRequest) returns (SetDriveNFSResponse) {}
   rpc ListDriveNFSDir (ListDriveNFSDirRequest) returns (ListDriveNFSDirResponse) {}
+  rpc SetDriveBaiduNetDisk (SetDriveBaiduNetDiskRequest) returns (SetDriveBaiduNetDiskResponse) {}
+  rpc StartBaiduNetdiskLogin (StartBaiduNetdiskLoginRequest) returns (StartBaiduNetdiskLoginResponse) {}
 }
 
 // enum ContentType {
@@ -29,43 +27,6 @@ service ImgSyncer {
 //   IMAGE_PNG = 1;
 //   IMAGE_GIF = 2;
 // }
-
-message HelloRequest {
-  string name = 1;
-}
-
-message HelloResponse {
-  string message = 1;
-}
-
-message UploadRequest {
-  bytes data = 1;
-  string name = 2;
-  string date = 3; // YYYY:MM:DD HH:MM:SS
-  bytes thumbnailData = 4;
-}
-message UploadResponse {
-  bool success = 1;
-  string message = 2;
-}
-
-message GetRequest {
-  string path = 1;
-}
-message GetResponse {
-  bool success = 1;
-  string message = 2;
-  bytes data = 3;
-}
-
-message GetThumbnailRequest {
-  string path = 1;
-}
-message GetThumbnailResponse {
-  bool success = 1;
-  string message = 2;
-  bytes data = 3;
-}
 
 message ListByDateRequest {
   string date = 1; // YYYY:MM:DD
@@ -86,13 +47,21 @@ message DeleteResponse {
   string message = 2;
 }
 
+message FilterNotUploadedRequestInfo {
+  string name = 1;
+  string date = 2;
+  string id = 3;
+}
+
 message FilterNotUploadedRequest {
-  repeated string names = 1;
+  repeated FilterNotUploadedRequestInfo photos = 1;
+  bool isFinished = 2;
 }
 message FilterNotUploadedResponse {
   bool success = 1;
   string message = 2;
-  repeated string notUploaed = 3;
+  repeated string notUploaedIDs = 3;
+  bool isFinished = 4;
 }
 
 message SetDriveSMBRequest {
@@ -169,4 +138,25 @@ message ListDriveNFSDirResponse {
   bool success = 1;
   string message = 2;
   repeated string dirs = 3;
+}
+
+message SetDriveBaiduNetDiskRequest {
+  string refreshToken = 1;
+  string accessToken = 2;
+  string tmpDir = 3;
+}
+message SetDriveBaiduNetDiskResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message StartBaiduNetdiskLoginRequest {
+  string tmpDir = 1;
+}
+message StartBaiduNetdiskLoginResponse {
+  bool success = 1;
+  string message = 2;
+  string refreshToken = 3;
+  string accessToken = 4;
+  int64 exiresAt = 5;
 }

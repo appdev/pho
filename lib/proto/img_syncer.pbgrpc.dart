@@ -14,25 +14,6 @@ import 'img_syncer.pb.dart' as $0;
 export 'img_syncer.pb.dart';
 
 class ImgSyncerClient extends $grpc.Client {
-  static final _$hello = $grpc.ClientMethod<$0.HelloRequest, $0.HelloResponse>(
-      '/img_syncer.ImgSyncer/Hello',
-      ($0.HelloRequest value) => value.writeToBuffer(),
-      ($core.List<$core.int> value) => $0.HelloResponse.fromBuffer(value));
-  static final _$upload =
-      $grpc.ClientMethod<$0.UploadRequest, $0.UploadResponse>(
-          '/img_syncer.ImgSyncer/Upload',
-          ($0.UploadRequest value) => value.writeToBuffer(),
-          ($core.List<$core.int> value) => $0.UploadResponse.fromBuffer(value));
-  static final _$get = $grpc.ClientMethod<$0.GetRequest, $0.GetResponse>(
-      '/img_syncer.ImgSyncer/Get',
-      ($0.GetRequest value) => value.writeToBuffer(),
-      ($core.List<$core.int> value) => $0.GetResponse.fromBuffer(value));
-  static final _$getThumbnail =
-      $grpc.ClientMethod<$0.GetThumbnailRequest, $0.GetThumbnailResponse>(
-          '/img_syncer.ImgSyncer/GetThumbnail',
-          ($0.GetThumbnailRequest value) => value.writeToBuffer(),
-          ($core.List<$core.int> value) =>
-              $0.GetThumbnailResponse.fromBuffer(value));
   static final _$listByDate =
       $grpc.ClientMethod<$0.ListByDateRequest, $0.ListByDateResponse>(
           '/img_syncer.ImgSyncer/ListByDate',
@@ -98,36 +79,23 @@ class ImgSyncerClient extends $grpc.Client {
           ($0.ListDriveNFSDirRequest value) => value.writeToBuffer(),
           ($core.List<$core.int> value) =>
               $0.ListDriveNFSDirResponse.fromBuffer(value));
+  static final _$setDriveBaiduNetDisk = $grpc.ClientMethod<
+          $0.SetDriveBaiduNetDiskRequest, $0.SetDriveBaiduNetDiskResponse>(
+      '/img_syncer.ImgSyncer/SetDriveBaiduNetDisk',
+      ($0.SetDriveBaiduNetDiskRequest value) => value.writeToBuffer(),
+      ($core.List<$core.int> value) =>
+          $0.SetDriveBaiduNetDiskResponse.fromBuffer(value));
+  static final _$startBaiduNetdiskLogin = $grpc.ClientMethod<
+          $0.StartBaiduNetdiskLoginRequest, $0.StartBaiduNetdiskLoginResponse>(
+      '/img_syncer.ImgSyncer/StartBaiduNetdiskLogin',
+      ($0.StartBaiduNetdiskLoginRequest value) => value.writeToBuffer(),
+      ($core.List<$core.int> value) =>
+          $0.StartBaiduNetdiskLoginResponse.fromBuffer(value));
 
   ImgSyncerClient($grpc.ClientChannel channel,
       {$grpc.CallOptions? options,
       $core.Iterable<$grpc.ClientInterceptor>? interceptors})
       : super(channel, options: options, interceptors: interceptors);
-
-  $grpc.ResponseFuture<$0.HelloResponse> hello($0.HelloRequest request,
-      {$grpc.CallOptions? options}) {
-    return $createUnaryCall(_$hello, request, options: options);
-  }
-
-  $grpc.ResponseFuture<$0.UploadResponse> upload(
-      $async.Stream<$0.UploadRequest> request,
-      {$grpc.CallOptions? options}) {
-    return $createStreamingCall(_$upload, request, options: options).single;
-  }
-
-  $grpc.ResponseStream<$0.GetResponse> get($0.GetRequest request,
-      {$grpc.CallOptions? options}) {
-    return $createStreamingCall(_$get, $async.Stream.fromIterable([request]),
-        options: options);
-  }
-
-  $grpc.ResponseStream<$0.GetThumbnailResponse> getThumbnail(
-      $0.GetThumbnailRequest request,
-      {$grpc.CallOptions? options}) {
-    return $createStreamingCall(
-        _$getThumbnail, $async.Stream.fromIterable([request]),
-        options: options);
-  }
 
   $grpc.ResponseFuture<$0.ListByDateResponse> listByDate(
       $0.ListByDateRequest request,
@@ -140,10 +108,10 @@ class ImgSyncerClient extends $grpc.Client {
     return $createUnaryCall(_$delete, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.FilterNotUploadedResponse> filterNotUploaded(
-      $0.FilterNotUploadedRequest request,
+  $grpc.ResponseStream<$0.FilterNotUploadedResponse> filterNotUploaded(
+      $async.Stream<$0.FilterNotUploadedRequest> request,
       {$grpc.CallOptions? options}) {
-    return $createUnaryCall(_$filterNotUploaded, request, options: options);
+    return $createStreamingCall(_$filterNotUploaded, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.SetDriveSMBResponse> setDriveSMB(
@@ -193,42 +161,25 @@ class ImgSyncerClient extends $grpc.Client {
       {$grpc.CallOptions? options}) {
     return $createUnaryCall(_$listDriveNFSDir, request, options: options);
   }
+
+  $grpc.ResponseFuture<$0.SetDriveBaiduNetDiskResponse> setDriveBaiduNetDisk(
+      $0.SetDriveBaiduNetDiskRequest request,
+      {$grpc.CallOptions? options}) {
+    return $createUnaryCall(_$setDriveBaiduNetDisk, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.StartBaiduNetdiskLoginResponse>
+      startBaiduNetdiskLogin($0.StartBaiduNetdiskLoginRequest request,
+          {$grpc.CallOptions? options}) {
+    return $createUnaryCall(_$startBaiduNetdiskLogin, request,
+        options: options);
+  }
 }
 
 abstract class ImgSyncerServiceBase extends $grpc.Service {
   $core.String get $name => 'img_syncer.ImgSyncer';
 
   ImgSyncerServiceBase() {
-    $addMethod($grpc.ServiceMethod<$0.HelloRequest, $0.HelloResponse>(
-        'Hello',
-        hello_Pre,
-        false,
-        false,
-        ($core.List<$core.int> value) => $0.HelloRequest.fromBuffer(value),
-        ($0.HelloResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.UploadRequest, $0.UploadResponse>(
-        'Upload',
-        upload,
-        true,
-        false,
-        ($core.List<$core.int> value) => $0.UploadRequest.fromBuffer(value),
-        ($0.UploadResponse value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.GetRequest, $0.GetResponse>(
-        'Get',
-        get_Pre,
-        false,
-        true,
-        ($core.List<$core.int> value) => $0.GetRequest.fromBuffer(value),
-        ($0.GetResponse value) => value.writeToBuffer()));
-    $addMethod(
-        $grpc.ServiceMethod<$0.GetThumbnailRequest, $0.GetThumbnailResponse>(
-            'GetThumbnail',
-            getThumbnail_Pre,
-            false,
-            true,
-            ($core.List<$core.int> value) =>
-                $0.GetThumbnailRequest.fromBuffer(value),
-            ($0.GetThumbnailResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.ListByDateRequest, $0.ListByDateResponse>(
         'ListByDate',
         listByDate_Pre,
@@ -246,9 +197,9 @@ abstract class ImgSyncerServiceBase extends $grpc.Service {
     $addMethod($grpc.ServiceMethod<$0.FilterNotUploadedRequest,
             $0.FilterNotUploadedResponse>(
         'FilterNotUploaded',
-        filterNotUploaded_Pre,
-        false,
-        false,
+        filterNotUploaded,
+        true,
+        true,
         ($core.List<$core.int> value) =>
             $0.FilterNotUploadedRequest.fromBuffer(value),
         ($0.FilterNotUploadedResponse value) => value.writeToBuffer()));
@@ -324,22 +275,24 @@ abstract class ImgSyncerServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListDriveNFSDirRequest.fromBuffer(value),
         ($0.ListDriveNFSDirResponse value) => value.writeToBuffer()));
-  }
-
-  $async.Future<$0.HelloResponse> hello_Pre(
-      $grpc.ServiceCall call, $async.Future<$0.HelloRequest> request) async {
-    return hello(call, await request);
-  }
-
-  $async.Stream<$0.GetResponse> get_Pre(
-      $grpc.ServiceCall call, $async.Future<$0.GetRequest> request) async* {
-    yield* get(call, await request);
-  }
-
-  $async.Stream<$0.GetThumbnailResponse> getThumbnail_Pre(
-      $grpc.ServiceCall call,
-      $async.Future<$0.GetThumbnailRequest> request) async* {
-    yield* getThumbnail(call, await request);
+    $addMethod($grpc.ServiceMethod<$0.SetDriveBaiduNetDiskRequest,
+            $0.SetDriveBaiduNetDiskResponse>(
+        'SetDriveBaiduNetDisk',
+        setDriveBaiduNetDisk_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SetDriveBaiduNetDiskRequest.fromBuffer(value),
+        ($0.SetDriveBaiduNetDiskResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.StartBaiduNetdiskLoginRequest,
+            $0.StartBaiduNetdiskLoginResponse>(
+        'StartBaiduNetdiskLogin',
+        startBaiduNetdiskLogin_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.StartBaiduNetdiskLoginRequest.fromBuffer(value),
+        ($0.StartBaiduNetdiskLoginResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListByDateResponse> listByDate_Pre($grpc.ServiceCall call,
@@ -350,12 +303,6 @@ abstract class ImgSyncerServiceBase extends $grpc.Service {
   $async.Future<$0.DeleteResponse> delete_Pre(
       $grpc.ServiceCall call, $async.Future<$0.DeleteRequest> request) async {
     return delete(call, await request);
-  }
-
-  $async.Future<$0.FilterNotUploadedResponse> filterNotUploaded_Pre(
-      $grpc.ServiceCall call,
-      $async.Future<$0.FilterNotUploadedRequest> request) async {
-    return filterNotUploaded(call, await request);
   }
 
   $async.Future<$0.SetDriveSMBResponse> setDriveSMB_Pre($grpc.ServiceCall call,
@@ -404,20 +351,25 @@ abstract class ImgSyncerServiceBase extends $grpc.Service {
     return listDriveNFSDir(call, await request);
   }
 
-  $async.Future<$0.HelloResponse> hello(
-      $grpc.ServiceCall call, $0.HelloRequest request);
-  $async.Future<$0.UploadResponse> upload(
-      $grpc.ServiceCall call, $async.Stream<$0.UploadRequest> request);
-  $async.Stream<$0.GetResponse> get(
-      $grpc.ServiceCall call, $0.GetRequest request);
-  $async.Stream<$0.GetThumbnailResponse> getThumbnail(
-      $grpc.ServiceCall call, $0.GetThumbnailRequest request);
+  $async.Future<$0.SetDriveBaiduNetDiskResponse> setDriveBaiduNetDisk_Pre(
+      $grpc.ServiceCall call,
+      $async.Future<$0.SetDriveBaiduNetDiskRequest> request) async {
+    return setDriveBaiduNetDisk(call, await request);
+  }
+
+  $async.Future<$0.StartBaiduNetdiskLoginResponse> startBaiduNetdiskLogin_Pre(
+      $grpc.ServiceCall call,
+      $async.Future<$0.StartBaiduNetdiskLoginRequest> request) async {
+    return startBaiduNetdiskLogin(call, await request);
+  }
+
   $async.Future<$0.ListByDateResponse> listByDate(
       $grpc.ServiceCall call, $0.ListByDateRequest request);
   $async.Future<$0.DeleteResponse> delete(
       $grpc.ServiceCall call, $0.DeleteRequest request);
-  $async.Future<$0.FilterNotUploadedResponse> filterNotUploaded(
-      $grpc.ServiceCall call, $0.FilterNotUploadedRequest request);
+  $async.Stream<$0.FilterNotUploadedResponse> filterNotUploaded(
+      $grpc.ServiceCall call,
+      $async.Stream<$0.FilterNotUploadedRequest> request);
   $async.Future<$0.SetDriveSMBResponse> setDriveSMB(
       $grpc.ServiceCall call, $0.SetDriveSMBRequest request);
   $async.Future<$0.ListDriveSMBSharesResponse> listDriveSMBShares(
@@ -434,4 +386,8 @@ abstract class ImgSyncerServiceBase extends $grpc.Service {
       $grpc.ServiceCall call, $0.SetDriveNFSRequest request);
   $async.Future<$0.ListDriveNFSDirResponse> listDriveNFSDir(
       $grpc.ServiceCall call, $0.ListDriveNFSDirRequest request);
+  $async.Future<$0.SetDriveBaiduNetDiskResponse> setDriveBaiduNetDisk(
+      $grpc.ServiceCall call, $0.SetDriveBaiduNetDiskRequest request);
+  $async.Future<$0.StartBaiduNetdiskLoginResponse> startBaiduNetdiskLogin(
+      $grpc.ServiceCall call, $0.StartBaiduNetdiskLoginRequest request);
 }

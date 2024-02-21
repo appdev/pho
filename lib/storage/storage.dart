@@ -1,14 +1,16 @@
 import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
 import 'package:grpc/grpc.dart';
 import 'package:img_syncer/proto/img_syncer.pbgrpc.dart';
 import 'package:date_format/date_format.dart';
+import 'package:img_syncer/state_model.dart';
 import 'package:path/path.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:img_syncer/global.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:img_syncer/util.dart';
 
 RemoteStorage storage = RemoteStorage("127.0.0.1", 10000);
 
@@ -33,14 +35,30 @@ class RemoteStorage {
   }
 
   Future<void> uploadXFile(XFile file) async {
+    await checkServer();
     final name = basename(file.path);
-    final lastModified = await file.lastModified();
-    final date = formatDate(
-        lastModified, [yyyy, ':', mm, ':', dd, ' ', HH, ':', nn, ':', ss]);
+    final date = await file.lastModified();
+    final dateStr =
+        formatDate(date, [yyyy, ':', mm, ':', dd, ' ', HH, ':', nn, ':', ss]);
+    var thumbnailSize = 200;
+    if (isVideoByPath(file.path)) {
+      thumbnailSize = 800;
+    }
+    var thumbnailData = await FlutterImageCompress.compressWithFile(
+      file.path,
+      minWidth: thumbnailSize,
+      minHeight: thumbnailSize,
+      quality: 90,
+    );
+    int uploaded = 0;
+    final imgLen = await file.length();
+    // final thumbLen = thumbnailData!.length;
+    final totalLen = imgLen;
     var req = http.StreamedRequest("POST", Uri.parse("$httpBaseUrl/$name"));
-    req.headers['Image-Date'] = date;
-    req.contentLength = await file.length();
+    req.headers['Image-Date'] = dateStr;
+    req.contentLength = imgLen;
     file.openRead().listen((chunk) {
+      uploaded += chunk.length;
       req.sink.add(chunk);
     }, onDone: () {
       req.sink.close();
@@ -49,20 +67,32 @@ class RemoteStorage {
     if (response.statusCode != 200) {
       throw Exception("upload failed: ${response.statusCode}");
     }
+    final thumbRsp = await http.post(
+      Uri.parse("$httpBaseUrl/thumbnail/$name"),
+      body: thumbnailData,
+      headers: {
+        'Image-Date': dateStr,
+      },
+    );
+    if (thumbRsp.statusCode != 200) {
+      throw Exception("upload thumbnail failed: ${thumbRsp.statusCode}");
+    }
   }
 
   Future<void> uploadAssetEntity(AssetEntity asset) async {
-    final name = asset.title;
-    if (name == null) {
-      throw Exception("asset name is null");
-    }
-    final createDate = asset.createDateTime;
-    final date = formatDate(
-        createDate, [yyyy, ':', mm, ':', dd, ' ', HH, ':', nn, ':', ss]);
-    final f = await asset.file;
-    if (f == null) {
+    await checkServer();
+    final file = await asset.originFile;
+    if (file == null) {
       throw Exception("asset file is null");
     }
+    final name = await asset.titleAsync;
+    // print("upload $name");
+    var date = asset.createDateTime;
+    if (date.isBefore(DateTime(1990, 1, 1))) {
+      date = asset.modifiedDateTime;
+    }
+    final dateStr =
+        formatDate(date, [yyyy, ':', mm, ':', dd, ' ', HH, ':', nn, ':', ss]);
     var thumbnailSize = const ThumbnailSize.square(200);
     if (asset.type == AssetType.video) {
       thumbnailSize = const ThumbnailSize.square(800);
@@ -72,34 +102,42 @@ class RemoteStorage {
     if (thumbnailData == null) {
       throw Exception("asset thumbnail is null");
     }
-    // final start = DateTime.now();
+    int uploaded = 0;
+    final imgLen = await file.length();
+    final thumbLen = thumbnailData!.length;
+    final totalLen = imgLen + thumbLen;
+    stateModel.updateUploadProgress(asset.id, uploaded, totalLen);
+
+    final thumbRsp = await http.post(
+      Uri.parse("$httpBaseUrl/thumbnail/$name"),
+      body: thumbnailData,
+      headers: {
+        'Image-Date': dateStr,
+      },
+    );
+    stateModel.updateUploadProgress(asset.id, uploaded + thumbLen, totalLen);
+    if (thumbRsp.statusCode != 200) {
+      stateModel.finishUpload(asset.id, false);
+      throw Exception("upload thumbnail failed: ${thumbRsp.statusCode}");
+    }
+
     var req = http.StreamedRequest("POST", Uri.parse("$httpBaseUrl/$name"));
-    req.headers['Image-Date'] = date;
-    req.contentLength = await f.length();
-    f.openRead().listen((chunk) {
+    req.headers['Image-Date'] = dateStr;
+    req.contentLength = await file.length();
+    file.openRead().listen((chunk) {
+      uploaded += chunk.length;
+      stateModel.updateUploadProgress(asset.id, uploaded, totalLen);
       req.sink.add(chunk);
     }, onDone: () {
       req.sink.close();
     });
     final response = await req.send();
     if (response.statusCode != 200) {
-      throw Exception("upload failed: ${response.statusCode}");
+      stateModel.finishUpload(asset.id, false);
+      final body = await response.stream.bytesToString();
+      throw Exception("upload failed: [${response.statusCode}] $body");
     }
-
-    final thumbRsp = await http.post(
-      Uri.parse("$httpBaseUrl/thumbnail/$name"),
-      body: thumbnailData,
-      headers: {
-        'Image-Date': date,
-      },
-    );
-    if (thumbRsp.statusCode != 200) {
-      throw Exception("upload thumbnail failed: ${thumbRsp.statusCode}");
-    }
-    // final end = DateTime.now();
-    // print("upload ${f.lengthSync()}bytes in ${end.difference(start)}s");
-    // print(
-    //     "speed: ${f.lengthSync() * 8 / end.difference(start).inSeconds / 1024 / 1024}mbps");
+    stateModel.finishUpload(asset.id, true);
   }
 
   // @protected
@@ -124,7 +162,7 @@ class RemoteStorage {
             maxReturn: maxReturn,
           ),
         )
-        .timeout(const Duration(seconds: 5));
+        .timeout(const Duration(seconds: 60));
     if (!rsp.success) {
       throw Exception("list images failed: ${rsp.message}");
     }
@@ -146,22 +184,7 @@ class RemoteImage {
   });
 
   bool isVideo() {
-    switch (extension(path)) {
-      case ".mp4":
-      case ".avi":
-      case ".mov":
-      case ".mkv":
-      case ".flv":
-      case ".rmvb":
-      case ".rm":
-      case ".3gp":
-      case ".wmv":
-      case ".mpeg":
-      case ".mpg":
-      case ".webm":
-        return true;
-    }
-    return false;
+    return isVideoByPath(path);
   }
 
   Stream<Uint8List> thumbnailStream() async* {
@@ -187,12 +210,27 @@ class RemoteImage {
     if (thumbnailData != null) {
       return thumbnailData!;
     }
-    var currentData = BytesBuilder();
-    var dataStream = thumbnailStream();
-    await for (var d in dataStream) {
-      currentData.add(d);
+    int maxRetries = 3;
+    int retryCount = 0;
+    bool succeeded = false;
+    while (retryCount < maxRetries && !succeeded) {
+      try {
+        var currentData = BytesBuilder();
+        var dataStream = thumbnailStream();
+        await for (var d in dataStream) {
+          currentData.add(d);
+        }
+        thumbnailData = currentData.takeBytes();
+        succeeded = true;
+      } catch (e) {
+        print("get $path thumbnail failed: $e");
+        retryCount++;
+      }
     }
-    thumbnailData = currentData.takeBytes();
+    if (!succeeded) {
+      final data = await rootBundle.load("assets/images/broken.png");
+      thumbnailData = data.buffer.asUint8List();
+    }
     return thumbnailData!;
   }
 
@@ -207,9 +245,15 @@ class RemoteImage {
     if (response.statusCode != 200) {
       throw Exception("get image failed: ${response.statusCode}");
     }
+    stateModel.updateDownloadProgress(
+        basename(path), 0, response.contentLength!);
+    int downloaded = 0;
     await for (var data in response.stream) {
+      stateModel.updateDownloadProgress(
+          basename(path), downloaded += data.length, response.contentLength!);
       yield data as Uint8List;
     }
+    stateModel.finishDownload(basename(path), true);
   }
 
   Future<Uint8List> imageData() async {

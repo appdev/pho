@@ -1,18 +1,17 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:img_syncer/asset.dart';
 import 'package:img_syncer/state_model.dart';
-// import 'package:photo_view/photo_view.dart';
-// import 'package:photo_view/photo_view_gallery.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:img_syncer/storage/storage.dart';
 import 'event_bus.dart';
 import 'package:extended_image/extended_image.dart';
-import 'package:fijkplayer/fijkplayer.dart';
 import 'package:img_syncer/video_route.dart';
 import 'package:img_syncer/global.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:gallery_saver/gallery_saver.dart';
 
 class GalleryViewerRoute extends StatefulWidget {
   const GalleryViewerRoute({
@@ -32,7 +31,7 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
   late final ExtendedPageController _pageController;
   late List<Asset> all;
   late int currentIndex;
-  final bool _isOriginalScale = true;
+  bool showAppBar = true;
 
   @override
   void initState() {
@@ -62,16 +61,16 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
     super.dispose();
   }
 
-  bool _isShowingAppBar = false;
+  bool _isShowingImageInfo = false;
   void showImageInfo(BuildContext context) {
     final currentAsset = all[currentIndex];
     if (!currentAsset.isInfoReady()) {
       return;
     }
-    if (_isShowingAppBar) {
+    if (_isShowingImageInfo) {
       return;
     }
-    _isShowingAppBar = true;
+    _isShowingImageInfo = true;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -111,44 +110,34 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
               )));
         }
         if (currentAsset.make != null && currentAsset.model != null) {
-          columns.add(ListTile(
-            leading: const SizedBox(
-              width: 40, // 设置宽度
-              child: Align(
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.camera_outlined,
-                  color: Color.fromARGB(255, 120, 120, 120),
+          List<String> children = [
+            if (currentAsset.fNumber != null) "f/${currentAsset.fNumber}",
+            if (currentAsset.exposureTime != null)
+              "${currentAsset.exposureTime!}",
+            if (currentAsset.focalLength != null)
+              "${currentAsset.focalLength}mm",
+            if (currentAsset.iSO != null) "ISO${currentAsset.iSO}",
+          ];
+          columns.add(
+            ListTile(
+              leading: const SizedBox(
+                width: 40, // 设置宽度
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.camera_outlined,
+                    color: Color.fromARGB(255, 120, 120, 120),
+                  ),
                 ),
               ),
-            ),
-            title: Text("${currentAsset.make} ${currentAsset.model}",
-                style: const TextStyle(fontSize: 15)),
-            subtitle: RichText(
-              text: TextSpan(
+              title: Text("${currentAsset.make} ${currentAsset.model}",
+                  style: const TextStyle(fontSize: 15)),
+              subtitle: Text(
+                children.join("  \u2022  "),
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
-                children: [
-                  TextSpan(
-                    text: (currentAsset.fNumber != null)
-                        ? "f/${currentAsset.fNumber}"
-                        : null,
-                  ),
-                  TextSpan(
-                      text: currentAsset.exposureTime != null
-                          ? "  \u2022  ${currentAsset.exposureTime}"
-                          : null),
-                  TextSpan(
-                      text: currentAsset.focalLength != null
-                          ? "  \u2022  ${currentAsset.focalLength}mm"
-                          : null),
-                  TextSpan(
-                      text: currentAsset.iSO != null
-                          ? "  \u2022  ISO${currentAsset.iSO}"
-                          : null),
-                ],
               ),
             ),
-          ));
+          );
         }
         columns.add(ListTile(
           leading: const SizedBox(
@@ -163,23 +152,25 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
           ),
           title: Text(all[currentIndex].name()!,
               style: const TextStyle(fontSize: 15)),
-          subtitle: RichText(
-            text: TextSpan(
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-              children: [
-                TextSpan(
-                  text: currentAsset.imageWidth != null &&
-                          currentAsset.imageHeight != null
-                      ? "${(currentAsset.imageWidth! * currentAsset.imageHeight! / 1024 / 1024).floor()} MP"
-                      : null,
+          subtitle: currentAsset.isVideo()
+              ? null
+              : RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    children: [
+                      TextSpan(
+                        text: currentAsset.imageWidth != null &&
+                                currentAsset.imageHeight != null
+                            ? "${(currentAsset.imageWidth! * currentAsset.imageHeight! / 1024 / 1024).floor()} MP"
+                            : null,
+                      ),
+                      TextSpan(
+                          text: currentAsset.imageWidth != null
+                              ? "  \u2022  ${currentAsset.imageWidth!}x${currentAsset.imageHeight!}"
+                              : null),
+                    ],
+                  ),
                 ),
-                TextSpan(
-                    text: currentAsset.imageWidth != null
-                        ? "  \u2022  ${currentAsset.imageWidth!}x${currentAsset.imageHeight!}"
-                        : null),
-              ],
-            ),
-          ),
         ));
 
         columns.add(ListTile(
@@ -200,22 +191,25 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
             text: TextSpan(
               style: const TextStyle(fontSize: 14, color: Colors.grey),
               children: [
-                TextSpan(
-                    text: "${currentAsset.imageSize.toStringAsFixed(1)} MB"),
-                TextSpan(text: "  \u2022  ${all[currentIndex].path()}"),
+                if (!currentAsset.isVideo())
+                  TextSpan(
+                      text: "${currentAsset.imageSize.toStringAsFixed(1)} MB"),
+                if (Platform.isAndroid) ...[
+                  const TextSpan(text: "  \u2022  "),
+                  TextSpan(text: all[currentIndex].path()),
+                ]
               ],
             ),
           ),
         ));
 
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+        return IntrinsicHeight(
           child: Column(
             children: columns,
           ),
         );
       },
-    ).then((value) => _isShowingAppBar = false);
+    ).then((value) => _isShowingImageInfo = false);
   }
 
   void deleteCurrent(BuildContext context) {
@@ -257,38 +251,49 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
       return;
     }
     OverlayEntry loadingDialog = OverlayEntry(
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
+      builder: (context) => Center(
+        child: Consumer<StateModel>(
+          builder: (context, stateModel, child) => CircularProgressIndicator(
+            strokeWidth: 5,
+            value: stateModel.getDownloadPercent(asset.name()!),
+          ),
+        ),
       ),
     );
 
     // 将加载对话框添加到Overlay中
     Overlay.of(context).insert(loadingDialog);
-    // 检查并请求存储权限
-    PermissionStatus status = await Permission.photos.status;
-    if (!status.isGranted) {
-      status = await Permission.photos.request();
-      if (!status.isGranted) {
-        SnackBarManager.showSnackBar("Permission denied");
-        return;
-      }
-    }
-    stateModel.setDownloadState(true);
     try {
       if (asset.name() != null) {
-        final data = await asset.imageDataAsync();
-        final absPath = '${settingModel.localFolderAbsPath}/${asset.name()}';
-        final file = File(absPath);
-        await file.writeAsBytes(data);
-        await file.setLastModified(asset.dateCreated());
-        await scanFile(absPath);
+        Uint8List data;
+        if (!asset.isVideo()) {
+          data = await asset.imageDataAsync();
+        } else {
+          data = await asset.remote!.imageData();
+        }
+        if (Platform.isAndroid) {
+          final absPath = '${settingModel.localFolderAbsPath}/${asset.name()}';
+          final file = File(absPath);
+          await file.writeAsBytes(data);
+          await file.setLastModified(asset.dateCreated());
+          await scanFile(absPath);
+        }
+        if (Platform.isIOS) {
+          var appDocDir = await getTemporaryDirectory();
+          String savePath = "${appDocDir.path}/${asset.name()}";
+          final file = File(savePath);
+          await file.writeAsBytes(data);
+          await file.setLastModified(asset.dateCreated());
+          await GallerySaver.saveImage(savePath, toDcim: true);
+        }
       }
+      SnackBarManager.showSnackBar("Download ${asset.name()} success");
+      eventBus.fire(LocalRefreshEvent());
     } catch (e) {
       SnackBarManager.showSnackBar(e.toString());
+    } finally {
+      loadingDialog.remove();
     }
-    stateModel.setDownloadState(false);
-    SnackBarManager.showSnackBar("Download ${asset.name()} success");
-    loadingDialog.remove();
   }
 
   void upload(Asset asset) async {
@@ -296,8 +301,19 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
       return;
     }
     OverlayEntry loadingDialog = OverlayEntry(
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
+      builder: (context) => Center(
+        child: SizedBox(
+          height: 50.0,
+          width: 50.0,
+          child: Consumer<StateModel>(
+            builder: (context, value, child) {
+              return CircularProgressIndicator(
+                strokeWidth: 5,
+                value: stateModel.getUploadPercent(asset.local!.id),
+              );
+            },
+          ),
+        ),
       ),
     );
 
@@ -308,21 +324,19 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
           "Remote storage is not setted,please set it first");
       return;
     }
-    stateModel.setUploadState(true);
     final entity = asset.local!;
-    if (entity.title != null) {
-      try {
-        await storage.uploadAssetEntity(entity);
-      } catch (e) {
-        print(e);
-        SnackBarManager.showSnackBar(e.toString());
+    try {
+      await storage.uploadAssetEntity(entity);
+      if (mounted) {
+        SnackBarManager.showSnackBar("Upload ${asset.name()} success");
       }
+      eventBus.fire(RemoteRefreshEvent());
+    } catch (e) {
+      print(e);
+      SnackBarManager.showSnackBar(e.toString());
+    } finally {
+      loadingDialog.remove();
     }
-    stateModel.setUploadState(false);
-    if (mounted) {
-      SnackBarManager.showSnackBar("Upload ${entity.title} success");
-    }
-    loadingDialog.remove();
   }
 
   @override
@@ -330,54 +344,62 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: const Color(0x00000000),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => deleteCurrent(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            onPressed: () async {
-              final data = await all[currentIndex].imageDataAsync();
-              Share.shareXFiles([
-                XFile.fromData(data,
-                    name: all[currentIndex].name(),
-                    mimeType: all[currentIndex].mimeType())
-              ]);
-            },
-          ),
-          if (!all[currentIndex].isLocal())
-            Consumer<StateModel>(
-              builder: (context, model, child) => IconButton(
-                icon: const Icon(Icons.download_outlined),
-                onPressed: () => model.isDownloading || model.isUploading
-                    ? null
-                    : download(all[currentIndex]),
-              ),
-            ),
-          if (all[currentIndex].isLocal())
-            Consumer<StateModel>(
-              builder: (context, model, child) => IconButton(
-                icon: const Icon(Icons.cloud_upload_outlined),
-                onPressed: () => model.isDownloading || model.isUploading
-                    ? null
-                    : upload(all[currentIndex]),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              all[currentIndex].imageDataAsync().then(
-                    (value) => showImageInfo(context),
-                  );
-            },
-          ),
-        ],
-      ),
+      appBar: showAppBar
+          ? AppBar(
+              backgroundColor: const Color.fromARGB(64, 0, 0, 0),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => deleteCurrent(context),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.share_outlined),
+                  onPressed: () async {
+                    final data = await all[currentIndex].imageDataAsync();
+                    Share.shareXFiles([
+                      XFile.fromData(data,
+                          name: all[currentIndex].name(),
+                          mimeType: all[currentIndex].mimeType()),
+                    ]);
+                  },
+                ),
+                if (!all[currentIndex].isLocal())
+                  Consumer<StateModel>(builder: (context, model, child) {
+                    return IconButton(
+                      icon: const Icon(Icons.cloud_download_outlined),
+                      onPressed: () =>
+                          model.isDownloading() || model.isUploading()
+                              ? null
+                              : download(all[currentIndex]),
+                    );
+                  }),
+                if (all[currentIndex].isLocal())
+                  Consumer<StateModel>(builder: (context, stateModel, child) {
+                    return IconButton(
+                      icon: stateModel.notSyncedIDs.isNotEmpty &&
+                              !stateModel.notSyncedIDs
+                                  .contains(all[currentIndex].local!.id)
+                          ? const Icon(Icons.cloud_done_outlined)
+                          : const Icon(Icons.cloud_upload_outlined),
+                      onPressed: () =>
+                          stateModel.isDownloading() || stateModel.isUploading()
+                              ? null
+                              : upload(all[currentIndex]),
+                    );
+                  }),
+                IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  onPressed: () {
+                    all[currentIndex].imageDataAsync().then(
+                          (value) => showImageInfo(context),
+                        );
+                  },
+                ),
+              ],
+            )
+          : null,
       body: Hero(
         tag:
             "asset_${widget.useLocal ? "local" : "remote"}_${all[currentIndex].path()}",
@@ -412,10 +434,11 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
                 currentIndex = index;
               });
               all[index].readInfoFromData().then((value) {
-                for (int i = -1; i != 0 && i <= 1; i++) {
-                  if (index + i >= 0 && index + i < all.length) {
-                    all[index + i].readInfoFromData();
-                  }
+                if (index + 1 >= 0 && index + 1 < all.length) {
+                  all[index + 1].readInfoFromData();
+                }
+                if (index - 1 >= 0 && index - 1 < all.length) {
+                  all[index - 1].readInfoFromData();
                 }
               });
               if (all.length - index < 5) {
@@ -446,7 +469,7 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
                           }
                           // 如果是下拉手势则弹出ImageInfo
                           if (details.totalScale == 1.0 &&
-                              details.offset!.dy < 0) {
+                              details.offset!.dy < -100) {
                             showImageInfo(context);
                           }
                         },
@@ -494,6 +517,10 @@ class GalleryViewerRouteState extends State<GalleryViewerRoute> {
                             ),
                           ),
                         );
+                      } else {
+                        setState(() {
+                          showAppBar = !showAppBar;
+                        });
                       }
                     },
                   ),

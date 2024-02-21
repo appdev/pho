@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:img_syncer/storageform/smbform.dart';
 import 'package:img_syncer/storageform/webdavform.dart';
 import 'package:img_syncer/storageform/nfsform.dart';
+import 'package:img_syncer/storageform/baidu_netdisk.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:img_syncer/state_model.dart';
 import 'package:img_syncer/global.dart';
@@ -14,7 +15,10 @@ class SettingStorageRoute extends StatefulWidget {
 }
 
 Drive getDrive(String drive) {
-  return driveName.entries.firstWhere((element) => element.value == drive).key;
+  return driveName.entries
+      .firstWhere((element) => element.value == drive,
+          orElse: () => const MapEntry(Drive.smb, "SMB"))
+      .key;
 }
 
 class SettingStorageRouteState extends State<SettingStorageRoute> {
@@ -49,6 +53,9 @@ class SettingStorageRouteState extends State<SettingStorageRoute> {
       case Drive.nfs:
         form = const NFSForm();
         break;
+      case Drive.baiduNetdisk:
+        form = const BaiduNetdiskForm();
+        break;
       default:
         form = const Text('Not implemented');
     }
@@ -57,7 +64,7 @@ class SettingStorageRouteState extends State<SettingStorageRoute> {
           backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
           iconTheme: Theme.of(context).iconTheme,
           elevation: 0,
-          title: Text(i18n.storageSetting,
+          title: Text(l10n.storageSetting,
               style: Theme.of(context).textTheme.titleLarge),
         ),
         body: Center(
@@ -67,18 +74,22 @@ class SettingStorageRouteState extends State<SettingStorageRoute> {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
               child: TextField(
                 readOnly: true,
-                controller:
-                    TextEditingController(text: driveName[currentDrive]),
+                controller: TextEditingController(
+                    text: driveName[currentDrive] == "BaiduNetdisk"
+                        ? l10n.baiduNetdisk
+                        : driveName[currentDrive]),
                 decoration: InputDecoration(
                     border: const OutlineInputBorder(),
-                    labelText: i18n!.remoteStorageType,
+                    labelText: l10n.remoteStorageType,
                     suffixIcon: PopupMenuButton<String>(
                       icon: const Icon(Icons.arrow_drop_down),
                       itemBuilder: (BuildContext context) {
                         return driveName.values
                             .map((String value) => PopupMenuItem<String>(
                                   value: value,
-                                  child: Text(value),
+                                  child: Text(value == "BaiduNetdisk"
+                                      ? l10n.baiduNetdisk
+                                      : value),
                                 ))
                             .toList();
                       },

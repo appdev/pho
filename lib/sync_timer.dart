@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:img_syncer/storage/storage.dart';
 import 'package:img_syncer/event_bus.dart';
+import 'package:path/path.dart';
+import 'package:img_syncer/global.dart';
 
 Timer? autoSyncTimer;
 
@@ -31,19 +33,16 @@ Future<void> reloadAutoSyncTimer() async {
         return;
       }
     }
-    if (stateModel.isUploading || stateModel.isDownloading) return;
+    if (stateModel.isUploading() || stateModel.isDownloading()) return;
     await refreshUnsynchronizedPhotos();
-    stateModel.setUploadState(true);
-    Map names = {};
-    for (final name in stateModel.notSyncedNames) {
-      names[name] = true;
+    Map ids = {};
+    for (final id in stateModel.notSyncedIDs) {
+      ids[id] = true;
     }
     final all = await getPhotos();
     for (var asset in all) {
-      if (names[asset.title] != true) {
-        continue;
-      }
-      if (asset.title == null) {
+      final id = asset.id;
+      if (ids[id] != true) {
         continue;
       }
       try {
@@ -53,14 +52,14 @@ Future<void> reloadAutoSyncTimer() async {
         continue;
       }
     }
-    stateModel.setUploadState(false);
     eventBus.fire(RemoteRefreshEvent());
   });
 }
 
 Future<List<AssetEntity>> getPhotos() async {
   List<AssetEntity> all = [];
-  await requestPermission();
+  final re = await requestPermission();
+  if (!re) return all;
   final List<AssetPathEntity> paths =
       await PhotoManager.getAssetPathList(type: RequestType.common);
   for (var path in paths) {

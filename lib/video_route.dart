@@ -1,6 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:img_syncer/asset.dart';
-import 'package:fijkplayer/fijkplayer.dart';
 import 'package:chewie/chewie.dart';
 import 'package:video_player/video_player.dart';
 import 'package:img_syncer/global.dart';
@@ -17,7 +17,6 @@ class VideoRoute extends StatefulWidget {
 }
 
 class _VideoRouteState extends State<VideoRoute> {
-  final FijkPlayer player = FijkPlayer();
   late VideoPlayerController videoPlayerController;
   late ChewieController chewieController;
   bool isInitialized = false;
@@ -25,14 +24,12 @@ class _VideoRouteState extends State<VideoRoute> {
   @override
   void initState() {
     super.initState();
-    player.setOption(FijkOption.playerCategory, "mediacodec-all-videos", 1);
     initializePlayer();
   }
 
   @override
   void dispose() {
     super.dispose();
-    player.release();
     chewieController.dispose();
     videoPlayerController.dispose();
   }
@@ -50,13 +47,24 @@ class _VideoRouteState extends State<VideoRoute> {
       videoPlayerController = VideoPlayerController.network(url);
     }
     await videoPlayerController.initialize();
+    Widget customControls = const MaterialControls();
+    var controlsSafeAreaMinimum = const EdgeInsets.all(0);
+    if (Platform.isIOS || Platform.isMacOS) {
+      controlsSafeAreaMinimum = const EdgeInsets.fromLTRB(0, 30, 0, 20);
+      customControls = const CupertinoControls(
+          backgroundColor: Color.fromARGB(255, 82, 82, 82),
+          iconColor: Colors.white);
+    }
     chewieController = ChewieController(
       videoPlayerController: videoPlayerController,
       autoPlay: true,
-      looping: true,
+      looping: false,
       showControlsOnInitialize: false,
       showOptions: false,
-      customControls: const MaterialControls(),
+      customControls: customControls,
+      allowFullScreen: false,
+      allowMuting: false,
+      controlsSafeAreaMinimum: controlsSafeAreaMinimum,
     );
     setState(() {
       isInitialized = true;
@@ -71,8 +79,11 @@ class _VideoRouteState extends State<VideoRoute> {
           children: [
             Center(
               child: isInitialized
-                  ? Chewie(
-                      controller: chewieController,
+                  ? Container(
+                      // padding: const EdgeInsets.fromLTRB(0, 80, 0, 20),
+                      child: Chewie(
+                        controller: chewieController,
+                      ),
                     )
                   : const CircularProgressIndicator(),
             ),
